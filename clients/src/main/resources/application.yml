@@ -1,0 +1,12 @@
+management:
+  endpoints.web.exposure.include: '*'
+  endpoint.health.show-details: always
+  metrics.distribution.percentiles-histogram.http.server.requests: true
+
+config:
+  rpc:
+    host: localhost
+    port: 10005
+    username: user1
+    password: test
+    queryTimeoutMs: 30000

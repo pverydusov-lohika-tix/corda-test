@@ -1,0 +1,142 @@
+buildscript {
+
+    ext {
+        corda_release_group = "net.corda"
+        corda_release_version = "4.7"
+        corda_gradle_plugins_version = "5.0.12"
+        kotlin_version = "1.2.71"
+        quasar_version = "0.7.10"
+        log4j_version = "2.11.2"
+        slf4j_version = "1.7.25"
+        corda_platform_version = 9
+        //springboot
+        spring_boot_version = '2.0.2.RELEASE'
+        spring_boot_gradle_plugin_version = '2.0.2.RELEASE'
+    }
+
+    repositories {
+        mavenLocal()
+        mavenCentral()
+        jcenter()
+        maven { url 'https://software.r3.com/artifactory/corda-releases' }
+    }
+
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath "net.corda.plugins:cordapp:$corda_gradle_plugins_version"
+        classpath "net.corda.plugins:cordformation:$corda_gradle_plugins_version"
+        classpath "net.corda.plugins:quasar-utils:$corda_gradle_plugins_version"
+        classpath "org.springframework.boot:spring-boot-gradle-plugin:$spring_boot_gradle_plugin_version"
+    }
+}
+
+allprojects { //Properties that you need to compile your project (The application)
+    apply from: "${rootProject.projectDir}/repositories.gradle"
+    apply plugin: 'kotlin'
+
+    repositories {
+        mavenLocal()
+        jcenter()
+        mavenCentral()
+        maven { url 'https://software.r3.com/artifactory/corda' }
+        maven { url 'https://jitpack.io' }
+    }
+
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile) {
+        kotlinOptions {
+            languageVersion = "1.2"
+            apiVersion = "1.2"
+            jvmTarget = "1.8"
+            javaParameters = true   // Useful for reflection.
+        }
+    }
+
+    jar {
+        // This makes the JAR's SHA-256 hash repeatable.
+        preserveFileTimestamps = false
+        reproducibleFileOrder = true
+    }
+}
+
+apply plugin: 'net.corda.plugins.cordapp'
+apply plugin: 'net.corda.plugins.cordformation'
+apply plugin: 'net.corda.plugins.quasar-utils'
+
+configurations {
+    cordaDrivers  // drivers required by Corda in Runtime
+}
+
+//Module dependencis
+dependencies {
+    // Corda dependencies.
+    cordaCompile "$corda_release_group:corda-core:$corda_release_version"
+    cordaRuntime "$corda_release_group:corda-node-api:$corda_release_version"
+    cordaRuntime "$corda_release_group:corda:$corda_release_version"
+
+    // CorDapp dependencies.
+    cordapp project(":workflows")
+
+    cordaCompile "org.apache.logging.log4j:log4j-slf4j-impl:${log4j_version}"
+    cordaCompile "org.apache.logging.log4j:log4j-web:${log4j_version}"
+    cordaCompile "org.slf4j:jul-to-slf4j:$slf4j_version"
+    cordaDrivers "org.postgresql:postgresql:42.2.8"
+}
+
+//Task to build the jar for ganache.
+task ganache {
+    subprojects {
+        if (it.project.name != "clients") {
+            dependsOn jar
+            doLast {
+                copy {
+                    from "${buildDir}/libs"
+                    into "${rootDir}/build/libs"
+                }
+            }
+        }
+    }
+}
+
+task copyDrivers(type: Copy) {
+    from configurations.cordaDrivers
+    into "$buildDir/drivers-down"
+}
+
+//Task to deploy the nodes in order to bootstrap a network
+task deployNodes(type: net.corda.plugins.Cordform, dependsOn: ['jar', 'copyDrivers']) {
+    ext.drivers = [ "$buildDir/drivers-down/postgresql-42.2.8.jar".toString() ]
+
+    nodeDefaults {
+        projectCordapp {
+            deploy = false
+        }
+        cordapp project(':workflows')
+        runSchemaMigration = true
+    }
+    node {
+        name "O=Notary,L=London,C=GB"
+        notary = [validating : false]
+        p2pPort 10000
+        rpcSettings {
+            address("localhost:10001")
+            adminAddress("localhost:10002")
+        }
+        cordapps.clear()
+    }
+    node {
+        name "O=PartyA,L=London,C=GB"
+        p2pPort 10004
+        rpcSettings {
+            address("localhost:10005")
+            adminAddress("localhost:10006")
+        }
+        rpcUsers = [[ user: "user1", "password": "test", "permissions": ["ALL"]]]
+        drivers = ext.drivers
+        extraConfig = [
+                'dataSourceProperties.dataSourceClassName' : 'org.postgresql.ds.PGSimpleDataSource',
+                'dataSourceProperties.dataSource.url': "jdbc:postgresql://localhost:5432/corda_db",
+                'dataSourceProperties.dataSource.user': "postgres",
+                'dataSourceProperties.dataSource.password': "postgres"
+        ]
+    }
+}

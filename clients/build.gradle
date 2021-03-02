@@ -1,0 +1,20 @@
+apply plugin: 'org.springframework.boot'
+
+
+dependencies {
+    // Corda dependencies.
+    compile "$corda_release_group:corda-rpc:$corda_release_version"
+    compile "net.corda:corda-jackson:$corda_release_version"
+
+    // CorDapp dependencies.
+    compile project(":workflows")
+    compile("org.springframework.boot:spring-boot-starter-web:$spring_boot_version")
+
+    compile("io.springfox:springfox-swagger-ui:2.9.2")
+    compile("io.springfox:springfox-swagger2:2.9.2")
+}
+
+
+springBoot {
+    mainClassName = "com.example.TestApplicationKt"
+}
