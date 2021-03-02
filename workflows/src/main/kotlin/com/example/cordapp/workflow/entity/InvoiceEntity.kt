@@ -16,7 +16,7 @@ object InvoiceSchemaV1 : MappedSchema(
 }
 
 @Entity
-@Table(name = "invoice", schema = "test")
+@Table(name = "invoice")
 data class InvoiceEntity(
     @Id
     @Column(name = "invoice_id")

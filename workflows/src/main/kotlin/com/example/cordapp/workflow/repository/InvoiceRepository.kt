@@ -29,9 +29,9 @@ class InvoiceRepository(
                     @Language("SQL")
                     val query =
                         """
-                            SELECT invoice.*
-                            FROM test.invoice invoice 
-                            WHERE invoice.invoice_id IN :invoiceIds
+                            SELECT *
+                            FROM invoice 
+                            WHERE invoice_id IN :invoiceIds
                         """.trimIndent()
                     @Suppress("UNCHECKED_CAST")
                     createNativeQuery(query, InvoiceEntity::class.java)
