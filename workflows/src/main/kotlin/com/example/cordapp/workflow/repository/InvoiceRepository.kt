@@ -22,8 +22,7 @@ class InvoiceRepository(
 
     fun findByKeys(ids: Collection<String>): Long {
         val start = System.currentTimeMillis()
-        val invoices = if (ids.isEmpty()) emptyList()
-        else {
+        if (ids.isNotEmpty()) {
             ids.chunked(HibernateProperties.TRACK_BY_PAGE_SIZE).flatMap { chunk ->
                 serviceHub.withEntityManager {
                     @Language("SQL")
@@ -35,7 +34,7 @@ class InvoiceRepository(
                         """.trimIndent()
                     @Suppress("UNCHECKED_CAST")
                     createNativeQuery(query, InvoiceEntity::class.java)
-                        .setParameter("invoiceIds", ids)
+                        .setParameter("invoiceIds", chunk)
                         .resultList as List<InvoiceEntity>
                 }
             }.map { it.toDto() }
